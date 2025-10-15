@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0" />
+<title>Mario Game - Enhanced</title>
+<style>
+  :root{--accent:#0ea5e9;--bg:#0b1220}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:#5c94fc;overflow:hidden;}
+  .board{display:block;width:100vw;height:100vh;background:linear-gradient(#5c94fc,#7bd1ff);}
+  /* Centered fancy modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;}
+  .modal{width:min(720px,92vw);background:linear-gradient(180deg,#ffffff, #f3f6ff);border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(2,6,23,0.45);transform:translateY(0);text-align:center;}
+  .modal h2{margin:0 0 8px;font-size:22px;color:#0f172a}
+  .modal p{margin:0 0 16px;color:#334155}
+  .btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--accent);color:white;font-weight:600;text-decoration:none;cursor:pointer;border:none}
+  .controls{position:fixed;left:0;right:0;bottom:12px;display:flex;justify-content:space-between;padding:0 12px;z-index:9998;pointer-events:none}
+  .left-right{display:flex;gap:10px;pointer-events:auto}
+  .mobile-btn{width:72px;height:72px;border-radius:14px;background:rgba(255,255,255,0.12);backdrop-filter: blur(4px);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;user-select:none}
+  .jump-btn{width:84px;height:84px;border-radius:999px;background:linear-gradient(180deg,#fff,#e6f7ff);color:#0f172a;box-shadow:0 8px 20px rgba(2,6,23,0.25)}
+  /* Score UI */
+  .hud{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,255,0.06);padding:8px 14px;border-radius:12px;color:#fff;display:flex;gap:14px;font-weight:600}
+  /* Responsive tweaks */
+  @media (max-width:520px){
+    .mobile-btn{width:58px;height:58px}
+    .jump-btn{width:68px;height:68px}
+    .modal{padding:16px;border-radius:12px}
+  }
+</style>
+</head>
+<body>
+<canvas class="board" id="screen" tabindex="0"></canvas>
+
+<!-- HUD -->
+<div class="hud" id="hud">
+  <div>Score: <span id="score">0</span></div>
+  <div>Coins: <span id="coins">0</span></div>
+</div>
+
+<!-- Start Modal -->
+<div id="startModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+  <div class="modal">
+    <h2 id="startTitle">Play the Game</h2>
+    <p>Use arrow keys or on-screen mobile buttons (left, right, jump). Collect coins and stomp enemies. Good luck!</p>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <select id="characterSel" style="padding:8px;border-radius:8px">
+        <option value="mario">Mario</option>
+      </select>
+      <select id="difficultySel" style="padding:8px;border-radius:8px">
+        <option value="easy">Easy</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+    <div style="margin-top:14px">
+      <button id="playBtn" class="btn">Play</button>
+    </div>
+  </div>
+</div>
+
+<!-- Game Over Modal -->
+<div id="gameOverModal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h2>Game Over</h2>
+    <p>Your final score: <strong id="finalScore">0</strong></p>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+      <button id="tryAgain" class="btn">Play Again</button>
+      <a id="companyBtn" class="btn" href="https://equilibrateai.com/" target="_blank" rel="noopener">Visit EquilibrateAI</a>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile controls -->
+<div class="controls" aria-hidden="false">
+  <div class="left-right">
+    <div id="mobile-left" class="mobile-btn" aria-label="left">◀</div>
+    <div id="mobile-right" class="mobile-btn" aria-label="right">▶</div>
+  </div>
+  <div>
+    <div id="mobile-jump" class="jump-btn" aria-label="jump">▲</div>
+  </div>
+</div>
+
+<!-- Load game scripts (order matters) -->
+<script src="/mario/entitityParent.js"></script>
+<script src="/mario/bgblueprint.js"></script>
+<script src="/mario/entity/brick.js"></script>
+<script src="/mario/entity/particles.js"></script>
+<script src="/mario/entity/coin.js"></script>
+<script src="/mario/entity/mushroom.js"></script>
+<script src="/mario/entity/mystery.js"></script>
+<script src="/mario/entity/goomba.js"></script>
+<script src="/mario/entity/koopa.js"></script>
+<script src="/mario/entity/mario.js"></script>
+<script src="/mario/animation.js"></script>
+<script src="/mario/input.js"></script>
+<script src="/mario/movement.js"></script>
+<script src="/mario/physics.js"></script>
+<script src="/mario/levelBuilder.js"></script>
+<script src="/mario/levelOne.js"></script>
+<script src="/mario/preload.js"></script>
+<script src="/mario/game.js"></script>
+
+<script>
+  // Wait until the game has dispatched a 'gameLoaded' custom event (preload.js or game.js should dispatch)
+  window.addEventListener('gameLoaded', () => {
+    // Show the start modal (visible by default) and attach play button
+    const playBtn = document.getElementById('playBtn');
+    playBtn.addEventListener('click', () => {
+      const char = document.getElementById('characterSel').value;
+      const diff = document.getElementById('difficultySel').value;
+      // call game start (sets difficulty and enables controls) if available
+      if (window.gameInstance && window.gameInstance.startWithSettings) {
+        window.gameInstance.startWithSettings(char, diff);
+      } else if (typeof startGame === 'function') {
+        // fallback: if your project has a startGame function
+        startGame();
+      }
+      // hide modal
+      document.getElementById('startModal').style.display = 'none';
+      // focus canvas to capture keyboard input
+      document.getElementById('screen').focus();
+    });
+  });
+
+  // Show game over modal when the game dispatches a `gameOver` event
+  window.addEventListener('gameOver', (e) => {
+    const detail = e.detail || {};
+    document.getElementById('finalScore').textContent = detail.score || 0;
+    document.getElementById('gameOverModal').style.display = 'flex';
+  });
+
+  document.getElementById('tryAgain').addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  // Update HUD values from window.gameInstance (score/coins)
+  function updateHUD(score, coins) {
+    const s = document.getElementById('score');
+    const c = document.getElementById('coins');
+    if (s) s.textContent = score || 0;
+    if (c) c.textContent = coins || 0;
+  }
+
+  // Listen for custom score update events
+  window.addEventListener('gameScoreUpdated', (e) => {
+    const d = e.detail || {};
+    updateHUD(d.score, d.coins);
+  });
+
+  // Mobile UI mapping: fire Input.keyDown / Input.keyUp or emits keyboard events
+  function mapTouchToInput(id, downFn, upFn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (ev) => { ev.preventDefault(); downFn(); }, {passive:false});
+    el.addEventListener('mousedown', (ev) => { ev.preventDefault(); downFn(); });
+    el.addEventListener('touchend', (ev) => { ev.preventDefault(); upFn(); }, {passive:false});
+    el.addEventListener('mouseup', (ev) => { ev.preventDefault(); upFn(); });
+  }
+
+  // Default mapping: tries to call Input.keyDown / Input.keyUp or emits keyboard events
+  function defaultKeyDown(code) {
+    if (window.Input && Input.keyDown) { Input.keyDown(code); return; }
+    const ev = new KeyboardEvent('keydown', {key: code});
+    window.dispatchEvent(ev);
+  }
+  function defaultKeyUp(code) {
+    if (window.Input && Input.keyUp) { Input.keyUp(code); return; }
+    const ev = new KeyboardEvent('keyup', {key: code});
+    window.dispatchEvent(ev);
+  }
+
+  mapTouchToInput('mobile-left', () => defaultKeyDown('ArrowLeft'), () => defaultKeyUp('ArrowLeft'));
+  mapTouchToInput('mobile-right', () => defaultKeyDown('ArrowRight'), () => defaultKeyUp('ArrowRight'));
+  mapTouchToInput('mobile-jump', () => defaultKeyDown(' '), () => defaultKeyUp(' '));
+
+  // Resize canvas to viewport for phones
+  function resizeCanvas() {
+    const canvas = document.getElementById('screen');
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // Let game know if it wants to re-init dimensions
+    if (window.gameInstance && window.gameInstance.onResize) window.gameInstance.onResize(canvas.width, canvas.height);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', resizeCanvas);
+  window.addEventListener('load', resizeCanvas);
+</script>
+</body>
+</html>

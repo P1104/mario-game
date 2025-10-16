@@ -7,11 +7,11 @@ window.tilesetImage = new Image();
 
 function preload() {
   // Set image sources
-  window.castleImage.src = "/mario/assets/sprites/castle.png";
+  window.castleImage.src = "/mario/assets/sprites/building2.png";
   window.cloudsImage.src = "/mario/assets/sprites/clouds.png";
-  window.mountainImage.src = "/mario/assets/sprites/mountains.png";
-  window.spriteSheetImage.src = "/mario/assets/sprites/spritesheet.png";
-  window.tilesetImage.src = "/mario/assets/sprites/tileset_gutter.png";
+  window.mountainImage.src = "/mario/assets/sprites/street_vendor.png";
+  window.spriteSheetImage.src = "/mario/assets/sprites/blore_sprite5.png";
+  window.tilesetImage.src = "/mario/assets/sprites/tileset_gutter_update.png";
 
   return new Promise((resolve, reject) => {
     const loadImage = (img, name) =>

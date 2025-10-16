@@ -124,7 +124,7 @@ export default function GameOverModal({ finalScore, finalCoins, onRestart, isMob
                 transition: 'all 0.3s ease'
               }}
             >
-              🌐 Visit EquilibrateAI
+              🌐 Visit Equilibrate.AI
             </a>
           </div>
         </div>

@@ -248,16 +248,33 @@ export default function MarioGamePage() {
   const handleCountdownComplete = () => {
     console.log("⏱️ Countdown complete, starting game");
 
-    if (window.initMobileResponsiveGame) {
-      window.initMobileResponsiveGame();
+    const canvas = document.getElementById("screen");
+    if (!canvas) {
+      console.error("Canvas not found!");
+      return;
+    }
+
+    const isMobileDevice = window.innerWidth <= 768;
+    const scale = isMobileDevice ? 1.8 : 3.1;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const newTool = canvas.getContext("2d");
+    newTool.setTransform(1, 0, 0, 1, 0, 0);
+    newTool.scale(scale, scale);
+
+    if (window.gameObj) {
+      window.gameObj.tool = newTool;
+      window.gameObj.canvas = canvas;
+      window.gameObj.camera.width = window.innerWidth / scale;
+      window.gameObj.levelComplete = false;
+      console.log("✅ Canvas context refreshed for restart");
     }
 
     if (window.gameInstance?.startWithSettings) {
       window.gameInstance.startWithSettings(character, difficulty);
       setGameState("playing");
-      setTimeout(() => {
-        const canvas = document.getElementById("screen");
-      }, 100);
     }
   };
 
@@ -266,12 +283,10 @@ export default function MarioGamePage() {
     if (window.gameInstance?._raf) {
       cancelAnimationFrame(window.gameInstance._raf);
     }
-    // Reset score and coins
     setScore(0);
     setCoins(0);
     setFinalScore(0);
     setFinalCoins(0);
-    // Go directly to countdown instead of start modal
     setGameState("countdown");
   };
 

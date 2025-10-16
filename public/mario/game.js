@@ -1,4 +1,4 @@
-// game.js - COMPLETE: Proper game over handling + Scale 1.8/3.1
+// game.js - COMPLETE: Proper restart handling
 const render = {
     init(gameObj) {
         gameObj.tool.fillStyle = "#3498db";
@@ -84,7 +84,6 @@ class Game {
                 
                 const tool = canvas.getContext("2d");
                 
-                // FIXED: Increased scale from 1.2/2.5 to 1.8/3.1
                 const isMobile = window.innerWidth <= 768;
                 const scale = isMobile ? 1.8 : 3.1;
                 tool.scale(scale, scale);
@@ -137,7 +136,6 @@ class Game {
                 input.init();
                 this.initMobileControls();
                 
-                // FIXED: Handle resize and orientation change with new scale
                 const handleResize = () => {
                     const newIsMobile = window.innerWidth <= 768;
                     const newScale = newIsMobile ? 1.8 : 3.1;
@@ -151,7 +149,6 @@ class Game {
                 
                 window.addEventListener('resize', handleResize);
                 window.addEventListener('orientationchange', () => {
-                    // Small delay after orientation change to get correct dimensions
                     setTimeout(handleResize, 100);
                 });
                 
@@ -193,30 +190,78 @@ class Game {
     }
     
     reset() {
-        console.log("🔄 Resetting game");
+        console.log("🔄 Resetting game - doing full reload");
         location.reload();
     }
     
     startWithSettings(character, difficulty) {
-        if (window.gameObj) {
-            const difficulties = {
-                'easy': { speed: 1.5 },
-                'normal': { speed: 2.0 },
-                'hard': { speed: 2.5 }
-            };
-            
-            window.gameObj.settings.character = character;
-            window.gameObj.settings.difficulty = difficulty;
-            window.gameObj.settings.speed = difficulties[difficulty].speed;
-            
-            if (window.gameObj.entities.mario) {
-                window.gameObj.entities.mario.velX = window.gameObj.settings.speed;
-            }
-            
-            console.log(`✅ Game started with ${character} on ${difficulty} difficulty`);
-
-            if (!this._raf) this.startMainLoop();
+        if (!window.gameObj) {
+            console.error("gameObj not found!");
+            return;
         }
+
+        const gameObj = window.gameObj;
+        
+        // FIXED: Reset game state properly before starting
+        console.log("🔧 Resetting game state for new game");
+        
+        // Reset mario position and state
+        gameObj.entities.mario.posX = 50;
+        gameObj.entities.mario.posY = 174;
+        gameObj.entities.mario.velX = 0;
+        gameObj.entities.mario.velY = 0;
+        gameObj.entities.mario.pointer = "idle";
+        gameObj.entities.mario.direction = 1;
+        gameObj.camera.start = 0;
+        
+        // Clear all entities except mario
+        gameObj.entities.goombas = [];
+        gameObj.entities.koopas = [];
+        gameObj.entities.particles = [];
+        gameObj.entities.coins = [];
+        gameObj.entities.mushrooms = [];
+        gameObj.entities.bricks = [];
+        gameObj.entities.blocks = [];
+        
+        // Rebuild level
+        gameObj.levelBuilder = new LevelBuilder(levelOne);
+        
+        // Recreate enemies
+        levelOne.goombas.forEach((gCord) => {
+            gameObj.entities.goombas.push(new Goomba(spriteSheetImage, gCord[0], gCord[1], gCord[2], gCord[3]));
+        });
+        levelOne.koopas.forEach((kCord) => {
+            gameObj.entities.koopas.push(new Koopa(spriteSheetImage, kCord[0], kCord[1], kCord[2], kCord[3]));
+        });
+        
+        // Reset score/coins if needed
+        gameObj.score = 0;
+        gameObj.coins = 0;
+        
+        const difficulties = {
+            'easy': { speed: 1.5 },
+            'normal': { speed: 2.0 },
+            'hard': { speed: 2.5 }
+        };
+        
+        gameObj.settings.character = character;
+        gameObj.settings.difficulty = difficulty;
+        gameObj.settings.speed = difficulties[difficulty].speed;
+        gameObj.entities.mario.velX = gameObj.settings.speed;
+        
+        console.log(`✅ Game state reset with ${character} on ${difficulty} difficulty`);
+        
+        // Reset userControl flag
+        gameObj.userControl = false;
+        
+        // If game loop already running, cancel it first
+        if (this._raf) {
+            cancelAnimationFrame(this._raf);
+            this._raf = null;
+        }
+
+        // Start fresh game loop
+        this.startMainLoop();
     }
     
     initMobileControls() {
